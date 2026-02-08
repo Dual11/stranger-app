@@ -1,0 +1,40 @@
+# docker-compose.local.yml
+services:
+# para la base de datos
+  db:
+    image: postgres:16-alpine
+    container_name: stranger_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: stranger
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/sql/:/docker-entrypoint-initdb.d:ro   # usa el script dado
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d stranger"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build:
+      context: ./frontend #llama al frontend
+      dockerfile: Dockerfile
+    container_name: stranger_web
+    ports:
+      - "8084:80"
+    volumes:
+      - ./frontend:/var/www/html   # ← hot reload (cambias archivo → recarga página)
+    environment:
+      # Esta variable la usas en tu JS para saber a dónde apuntar
+      API_BACKEND_URL: http://host.docker.internal:8080/api
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
